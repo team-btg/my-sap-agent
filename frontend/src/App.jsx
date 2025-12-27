@@ -8,13 +8,10 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // NEW: Modal State for SAP Data
   const [modalData, setModalData] = useState(null);
 
-  // NEW: SAP Connection Status State
   const [sapStatus, setSapStatus] = useState({ status: "Checking...", color: "gray" });
 
-  // NEW: Polling logic for SAP Status
   useEffect(() => {
     const checkStatus = async () => {
       try {
@@ -57,11 +54,9 @@ export default function App() {
     setInput("");
   };
 
-  // NEW: Helper to format tab-delimited text into Markdown tables
   const formatMessageContent = (content) => {
     if (!content || typeof content !== 'string') return "";
     
-    // Check if the content contains tabs and multiple lines (likely a raw table)
     if (content.includes('\t') && content.split('\n').length > 1) {
       const lines = content.split('\n').filter(l => l.trim() !== "");
       const tableLines = lines.map((line, index) => {
@@ -79,59 +74,77 @@ export default function App() {
   };
  
   const renderSapTable = (data) => {
-    console.log("Rendering SAP Table with data:", data);
-    if (!data || !Array.isArray(data) || data.length === 0) return null;
+    if (!data) return null;
 
-    // 1. DATA FLATTENING LOGIC (For Cross-Join / QueryService)
-    const flattenRow = (row) => {
+    let rawItems = Array.isArray(data) ? data : [data];
+    if (rawItems.length === 0) return null;
+
+    let displayData = rawItems;
+    let tableTitle = "";
+
+    if (rawItems.length === 1 && rawItems[0].DocumentLines) {
+      const header = rawItems[0];
+      displayData = header.DocumentLines.map(line => ({
+        DocNum: header.DocNum,
+        CardName: header.CardName,
+        ...line
+      }));
+      tableTitle = `Lines for Document #${header.DocNum}`;
+    }
+
+    const processedData = displayData.map(row => {
       let flat = {};
       Object.keys(row).forEach(key => {
-        if (typeof row[key] === 'object' && row[key] !== null) {
-          // If the key is 'PurchaseInvoices/DocumentLines', we merge its properties
-          Object.assign(flat, row[key]);
-        } else {
-          flat[key] = row[key];
+        const val = row[key];
+        if (val && typeof val === 'object' && !Array.isArray(val)) {
+          Object.assign(flat, val);
+        } else if (!Array.isArray(val)) {
+          flat[key] = val;
         }
       });
-      console.log("Flattened row:", flat);
       return flat;
-    };
-
-    // Process the data: If a row contains objects (QueryService style), flatten it
-    const processedData = data.map(row => {
-      const hasNestedEntities = Object.values(row).some(v => typeof v === 'object' && v !== null);
-      return hasNestedEntities ? flattenRow(row) : row;
     });
 
-    // 2. HEADER EXTRACTION
-    const headers = Object.keys(processedData[0]).slice(0, 12);
+    const priority = [
+      'DocNum', 'DocDate', 'CardCode', 'CardName', 'ItemCode', 'ItemDescription', 
+      'Quantity', 'Price', 'LineTotal', 'DocTotal', 'DocCurrency', 'DocumentStatus'
+    ];
+    
+    const allKeys = Object.keys(processedData[0]);
+    const headers = [
+      ...priority.filter(p => allKeys.includes(p)),
+      ...allKeys.filter(k => !priority.includes(k))
+    ].slice(0, 15); // Limit to 15 columns for readability
 
     return (
-      <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 shadow-sm bg-white">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              {headers.map((h) => (
-                <th key={h} className="px-4 py-2 text-left font-bold text-gray-700 capitalize whitespace-nowrap">
-                  {h.replace(/([A-Z])/g, ' $1').trim()}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {processedData.map((row, i) => (
-              <tr key={i} className="hover:bg-blue-50 transition-colors">
+      <div className="space-y-2">
+        {tableTitle && <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">{tableTitle}</div>}
+        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
                 {headers.map((h) => (
-                  <td key={h} className="px-4 py-2 text-gray-600 whitespace-nowrap">
-                    {typeof row[h] === 'number' 
-                      ? row[h].toLocaleString(undefined, { minimumFractionDigits: 2 }) 
-                      : String(row[h] || '')}
-                  </td>
+                  <th key={h} className="px-4 py-2 text-left font-bold text-gray-700 capitalize whitespace-nowrap">
+                    {h.replace(/([A-Z])/g, ' $1').replace(/^U_/, '').trim()}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {processedData.map((row, i) => (
+                <tr key={i} className="hover:bg-blue-50 transition-colors">
+                  {headers.map((h) => (
+                    <td key={h} className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                      {typeof row[h] === 'number' 
+                        ? row[h].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                        : String(row[h] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
