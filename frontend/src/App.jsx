@@ -3,6 +3,9 @@ import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
+// Change this to your Google Cloud Run URL once deployed
+const API_URL = "http://localhost:8000";
+
 export default function App() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -22,7 +25,7 @@ export default function App() {
     setLoading(true);
     setLoginError("");
     try {
-      const res = await axios.post("http://localhost:8000/login", credentials);
+      const res = await axios.post(`${API_URL}/login`, credentials);
       if (res.data.status === "success") {
         setIsLoggedIn(true);
         sessionStorage.setItem("sap_logged_in", "true");
@@ -45,7 +48,7 @@ export default function App() {
     if (!isLoggedIn) return;
     const checkStatus = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/sap-status");
+        const res = await axios.get(`${API_URL}/sap-status`);
         setSapStatus(res.data);
       } catch (err) {
         setSapStatus({ status: "Offline", color: "red" });
@@ -65,7 +68,7 @@ export default function App() {
     setMessages(prev => [...prev, userMsg]);
     
     try { 
-      const res = await axios.post("http://localhost:8000/chat", { 
+      const res = await axios.post(`${API_URL}/chat`, { 
         message: input,
         history: messages 
       });
