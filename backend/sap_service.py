@@ -32,7 +32,7 @@ class SAPServiceLayer:
             response = self.session.post(url, json=data, timeout=15)
             # If 401, the auto-relogin logic we added earlier will handle it
             if response.status_code == 401:
-                if self.login():
+                if self.login(self.current_user, self.current_pass):
                     response = self.session.post(url, json=data, timeout=15)
             
             return response.json()
@@ -48,7 +48,7 @@ class SAPServiceLayer:
         try:
             response = self.session.post(url, json=payload, timeout=20)
             if response.status_code == 401:
-                if self.login():
+                if self.login(self.current_user, self.current_pass):
                     response = self.session.post(url, json=payload, timeout=20)
             
             # The service returns a string-based JSON response that needs parsing
@@ -62,18 +62,26 @@ class SAPServiceLayer:
         # verify=False here works with the context above
         self.session.verify = False 
         self.session.mount("https://", LegacyAdapter())
+        self.current_user = os.getenv("SAP_USER")
+        self.current_pass = os.getenv("SAP_PASSWORD")
 
-    def login(self):
+    def login(self, username=None, password=None):
         url = f"{self.base_url}/Login"
+        
+        # Use provided credentials or fallback to env vars
+        self.current_user = username or os.getenv("SAP_USER")
+        self.current_pass = password or os.getenv("SAP_PASSWORD")
+
         payload = {
             "CompanyDB": os.getenv("SAP_DB"),
-            "UserName": os.getenv("SAP_USER"),
-            "Password": os.getenv("SAP_PASSWORD")
+            "UserName": self.current_user,
+            "Password": self.current_pass
         }
         try:
             # Added a short timeout to prevent hanging
             response = self.session.post(url, json=payload, timeout=10)
             if response.status_code == 200:
+                print(f"✅ SAP Login successful for user: {self.current_user}")
                 return True
             else:
                 print(f"SAP Login HTTP Error: {response.status_code} - {response.text}")
@@ -97,7 +105,8 @@ class SAPServiceLayer:
 
             if response.status_code == 401:
                 print("🔄 Session expired. Re-logging into SAP...")
-                if self.login():
+                # Relogin with stored credentials
+                if self.login(self.current_user, self.current_pass):
                     print("✅ Re-login successful. Retrying query.")
                     response = self.session.get(full_url)
                 else:
@@ -109,9 +118,9 @@ class SAPServiceLayer:
             
             if response.status_code == 401:
                 print("🔄 Session expired. Re-logging into SAP...")
-                if self.login():
+                if self.login(self.current_user, self.current_pass):
                     print("✅ Re-login successful. Retrying query.")
-                    response = self.session.get(full_url)
+                    response = self.session.get(url) # Fixed: used url instead of full_url
                 else:
                     return {"error": "Authentication failed even after retry."}
                    

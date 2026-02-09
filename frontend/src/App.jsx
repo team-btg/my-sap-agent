@@ -10,9 +10,39 @@ export default function App() {
   
   const [modalData, setModalData] = useState(null);
 
+  // Login State
+  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem("sap_logged_in") === "true");
+  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
+
   const [sapStatus, setSapStatus] = useState({ status: "Checking...", color: "gray" });
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setLoginError("");
+    try {
+      const res = await axios.post("http://localhost:8000/login", credentials);
+      if (res.data.status === "success") {
+        setIsLoggedIn(true);
+        sessionStorage.setItem("sap_logged_in", "true");
+      } else {
+        setLoginError(res.data.message);
+      }
+    } catch (err) {
+      setLoginError("Connection refused. Is backend running?");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    sessionStorage.removeItem("sap_logged_in");
+  };
+
   useEffect(() => {
+    if (!isLoggedIn) return;
     const checkStatus = async () => {
       try {
         const res = await axios.get("http://localhost:8000/sap-status");
@@ -149,17 +179,81 @@ export default function App() {
     );
   };
 
+  if (!isLoggedIn) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-black text-gray-800 uppercase tracking-tight">AI Agent for SAP B1</h1>
+            <p className="text-gray-500 text-sm mt-1">Please login with your SAP B1 credentials</p>
+          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 ml-1">Username</label>
+              <input 
+                type="text" 
+                required
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-blue-500 transition-all bg-gray-50"
+                value={credentials.username}
+                onChange={e => setCredentials({...credentials, username: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 ml-1">Password</label>
+              <input 
+                type="password" 
+                required
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-blue-500 transition-all bg-gray-50"
+                value={credentials.password}
+                onChange={e => setCredentials({...credentials, password: e.target.value})}
+              />
+            </div>
+
+            {loginError && (
+              <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100 font-bold">
+                {loginError}
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 font-black rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-200 disabled:opacity-50"
+            >
+              {loading ? "Authenticating..." : "LOGIN TO SAP"}
+            </button>
+          </form>
+          
+          <div className="mt-8 text-center">
+             <div className="flex items-center justify-center gap-2 grayscale opacity-30">
+                <span className="text-[10px] font-bold">POWERED BY GEMINI 3 FLASH</span>
+             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-full flex flex-col bg-gray-50 overflow-hidden">
       
       {/* SAP Status Dashboard Pill */}
       <div className="flex items-center justify-between p-4 md:px-10 md:pt-8">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-gray-100">
-          <div className={`w-2.5 h-2.5 rounded-full animate-pulse bg-${sapStatus.color === 'green' ? 'green' : sapStatus.color === 'red' ? 'red' : 'gray'}-500`}></div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-            SAP B1: {sapStatus.status}
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-gray-100">
+            <div className={`w-2.5 h-2.5 rounded-full animate-pulse bg-${sapStatus.color === 'green' ? 'green' : sapStatus.color === 'red' ? 'red' : 'gray'}-500`}></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+              SAP B1: {sapStatus.status}
+            </span>
+          </div>
         </div>
+        <button 
+          onClick={handleLogout}
+          className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500 transition-colors"
+        >
+          Logout
+        </button>
       </div>
 
       {/* Chat History Area */}

@@ -17,13 +17,22 @@ class ChatRequest(BaseModel):
     message: str
     history: list = []
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 @app.on_event("startup")
 def startup():
-    success = sap.login()
+    # Attempt login with ENV vars on startup
+    sap.login()
+
+@app.post("/login")
+async def login(req: LoginRequest):
+    success = sap.login(req.username, req.password)
     if success:
-        print("✅ SUCCESS: Backend logged into SAP Business One")
+        return {"status": "success", "message": "Logged into SAP successfully"}
     else:
-        print("❌ ERROR: Backend could not log into SAP. Check .env credentials.")
+        return {"status": "error", "message": "Invalid SAP credentials"}
 
 @app.get("/sap-status")
 async def get_sap_status():
