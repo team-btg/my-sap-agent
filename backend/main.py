@@ -36,11 +36,15 @@ async def login(req: LoginRequest):
 
 @app.get("/sap-status")
 async def get_sap_status():
-    # Attempt a lightweight call to check session
-    is_connected = sap.login() # Or a lightweight GET like /b1s/v1/CompanyService_GetCompanyInfo
-    if is_connected:
-        return {"status": "Connected", "color": "green"}
-    return {"status": "Disconnected", "color": "red"}
+    # Do a lightweight query instead of re-authenticating
+    try:
+        result = sap.get_data("CompanyService_GetCompanyInfo")
+        if "error" not in result:
+            return {"status": "Connected", "color": "green"}
+        else:
+            return {"status": "Disconnected", "color": "red"}
+    except Exception as e:
+        return {"status": "Disconnected", "color": "red"}
 
 @app.post("/chat") 
 async def chat(req: ChatRequest):
