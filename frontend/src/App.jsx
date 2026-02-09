@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 // Change this to your Google Cloud Run URL once deployed
-const API_URL = "http://localhost:8000";
+const API_URL = "https://sap-b1-gemini-ai-645182670662.europe-west1.run.app";
 
 export default function App() {
   const [input, setInput] = useState("");
